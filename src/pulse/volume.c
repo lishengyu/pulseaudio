@@ -771,6 +771,7 @@ pa_cvolume* pa_cvolume_set_balance(pa_cvolume *v, const pa_channel_map *map, flo
 
 pa_cvolume* pa_cvolume_scale(pa_cvolume *v, pa_volume_t max) {
     unsigned c;
+    uint64_t scale;
     pa_volume_t t = 0;
 
     pa_assert(v);
@@ -783,8 +784,10 @@ pa_cvolume* pa_cvolume_scale(pa_cvolume *v, pa_volume_t max) {
     if (t <= PA_VOLUME_MUTED)
         return pa_cvolume_set(v, v->channels, max);
 
-    for (c = 0; c < v->channels; c++)
-        v->values[c] = (pa_volume_t) PA_CLAMP_VOLUME(((uint64_t) v->values[c] * (uint64_t) max) / (uint64_t) t);
+    for (c = 0; c < v->channels; c++) {
+        scale = (uint64_t) round((double) ((uint64_t) v->values[c] * (uint64_t) max) / (uint64_t) t);
+        v->values[c] = (pa_volume_t) PA_CLAMP_VOLUME(scale);
+    }
 
     return v;
 }
