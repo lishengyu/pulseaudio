@@ -2527,16 +2527,16 @@ static int parse_volume(const char *vol_spec, pa_volume_t *vol, enum volume_flag
     vs = pa_xstrdup(vol_spec);
 
     *vol_flags = (pa_startswith(vs, "+") || pa_startswith(vs, "-")) ? VOL_RELATIVE : VOL_ABSOLUTE;
-    if (strchr(vs, '.'))
-        *vol_flags |= VOL_LINEAR;
     if (pa_endswith(vs, "%")) {
         *vol_flags |= VOL_PERCENT;
         vs[strlen(vs)-1] = 0;
     }
-    if (pa_endswith(vs, "db") || pa_endswith(vs, "dB")) {
+    else if (pa_endswith(vs, "db") || pa_endswith(vs, "dB")) {
         *vol_flags |= VOL_DECIBEL;
         vs[strlen(vs)-2] = 0;
     }
+    else if (strchr(vs, '.'))
+        *vol_flags |= VOL_LINEAR;
 
     atod_input = vs;
 
@@ -2552,19 +2552,30 @@ static int parse_volume(const char *vol_spec, pa_volume_t *vol, enum volume_flag
     pa_xfree(vs);
 
     if (*vol_flags & VOL_RELATIVE) {
-        if ((*vol_flags & 0x0F) == VOL_UINT)
-            v += (double) PA_VOLUME_NORM;
-        if ((*vol_flags & 0x0F) == VOL_PERCENT)
-            v += 100.0;
-        if ((*vol_flags & 0x0F) == VOL_LINEAR)
-            v += 1.0;
+	switch (*vol_flags & 0x0F) {
+	    case VOL_UINT:
+		v += (double) PA_VOLUME_NORM;
+		break;
+	    case VOL_PERCENT:
+		v += 100.0;
+		break;
+	    case VOL_LINEAR:
+		v += 1.0;
+		break;
+	}
     }
-    if ((*vol_flags & 0x0F) == VOL_PERCENT)
-        v = v * (double) PA_VOLUME_NORM / 100;
-    if ((*vol_flags & 0x0F) == VOL_LINEAR)
-        v = pa_sw_volume_from_linear(v);
-    if ((*vol_flags & 0x0F) == VOL_DECIBEL)
-        v = pa_sw_volume_from_dB(v);
+
+    switch (*vol_flags & 0x0F) {
+	case VOL_PERCENT:
+	    v = v * (double) PA_VOLUME_NORM / 100;
+	    break;
+	case VOL_LINEAR:
+	    v = pa_sw_volume_from_linear(v);
+	    break;
+	case VOL_DECIBEL:
+	    v = pa_sw_volume_from_dB(v);
+	    break;
+    }
 
     if (!PA_VOLUME_IS_VALID((pa_volume_t) v)) {
         pa_log(_("Volume outside permissible range.\n"));
@@ -2586,7 +2597,7 @@ static int parse_volumes(char *args[], unsigned n) {
 
     volume.channels = n;
     for (i = 0; i < volume.channels; i++) {
-        enum volume_flags flags;
+        enum volume_flags flags = 0;
 
         if (parse_volume(args[i], &volume.values[i], &flags) < 0)
             return -1;
@@ -2735,6 +2746,7 @@ int main(int argc, char *argv[]) {
         format = TEXT;
     } else if (pa_streq(opt_format, "json")) {
         format = JSON;
+        setlocale(LC_NUMERIC, "C");
     } else {
         pa_log(_("Invalid format value '%s'"), opt_format);
         goto quit;

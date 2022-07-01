@@ -162,7 +162,7 @@ static void add_profiles(struct userdata *u, pa_hashmap *h, pa_hashmap *ports) {
 
             PA_IDXSET_FOREACH(m, ap->output_mappings, idx) {
                 if (u->use_ucm)
-                    pa_alsa_ucm_add_ports_combination(NULL, &m->ucm_context, true, ports, cp, u->core);
+                    pa_alsa_ucm_add_port(NULL, &m->ucm_context, true, ports, cp, u->core);
                 else
                     pa_alsa_path_set_add_ports(m->output_path_set, cp, ports, NULL, u->core);
                 if (m->channel_map.channels > cp->max_sink_channels)
@@ -175,7 +175,7 @@ static void add_profiles(struct userdata *u, pa_hashmap *h, pa_hashmap *ports) {
 
             PA_IDXSET_FOREACH(m, ap->input_mappings, idx) {
                 if (u->use_ucm)
-                    pa_alsa_ucm_add_ports_combination(NULL, &m->ucm_context, false, ports, cp, u->core);
+                    pa_alsa_ucm_add_port(NULL, &m->ucm_context, false, ports, cp, u->core);
                 else
                     pa_alsa_path_set_add_ports(m->input_path_set, cp, ports, NULL, u->core);
                 if (m->channel_map.channels > cp->max_source_channels)
@@ -249,8 +249,7 @@ static int card_set_profile(pa_card *c, pa_card_profile *new_profile) {
 
     /* if UCM is available for this card then update the verb */
     if (u->use_ucm) {
-        if (pa_alsa_ucm_set_profile(&u->ucm, c, nd->profile ? nd->profile->name : NULL,
-                    od->profile ? od->profile->name : NULL) < 0) {
+        if (pa_alsa_ucm_set_profile(&u->ucm, c, nd->profile, od->profile) < 0) {
             ret = -1;
             goto finish;
         }
@@ -302,7 +301,7 @@ static void init_profile(struct userdata *u) {
 
     if (d->profile && u->use_ucm) {
         /* Set initial verb */
-        if (pa_alsa_ucm_set_profile(ucm, u->card, d->profile->name, NULL) < 0) {
+        if (pa_alsa_ucm_set_profile(ucm, u->card, d->profile, NULL) < 0) {
             pa_log("Failed to set ucm profile %s", d->profile->name);
             return;
         }
